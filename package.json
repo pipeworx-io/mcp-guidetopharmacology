@@ -1,6 +1,6 @@
 {
   "name": "@pipeworx/mcp-guidetopharmacology",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "IUPHAR/BPS Guide to PHARMACOLOGY (GtoPdb) MCP — keyless.",
   "type": "module",
   "main": "src/index.ts",
@@ -26,7 +26,7 @@
     "@cloudflare/workers-types": "^4.20260405.1"
   },
   "pipeworx": {
-    "sourceHash": "v1-4687efaaa9abee746bccce89978a5cce81eb2c7009e3da355df50f1be873c2d6",
-    "sourceCommit": "76aa8f5d9b5dc2f665563030647c68e661478864"
+    "sourceHash": "v1-993d7b442c362116f016bbe288bb4ea3502b9ea327929b740be74673a99ff60b",
+    "sourceCommit": "1064560fd9dcd0d6fc2606298c2ba244b3a1fbeb"
   }
 }
