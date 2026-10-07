@@ -1,7 +1,7 @@
 {
   "name": "@pipeworx/mcp-guidetopharmacology",
-  "version": "0.1.2",
-  "description": "IUPHAR/BPS Guide to PHARMACOLOGY (GtoPdb) MCP — keyless.",
+  "version": "0.1.3",
+  "description": "IUPHAR/BPS Guide to PHARMACOLOGY (GtoPdb) MCP — BYO key.",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -26,7 +26,7 @@
     "@cloudflare/workers-types": "^4.20260405.1"
   },
   "pipeworx": {
-    "sourceHash": "v1-993d7b442c362116f016bbe288bb4ea3502b9ea327929b740be74673a99ff60b",
-    "sourceCommit": "1064560fd9dcd0d6fc2606298c2ba244b3a1fbeb"
+    "sourceHash": "v1-bd5264c0af787b48ff0453cd611e9f7e4be8c046553bf214f6326ca2df277557",
+    "sourceCommit": "eb436cf60f06c9b79701a15cd1670609580544a5"
   }
 }

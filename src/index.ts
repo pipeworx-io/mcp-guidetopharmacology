@@ -671,8 +671,20 @@ function collapse(s: string): string {
   return s.replace(/\s+/g, ' ').trim();
 }
 /**
- * IUPHAR/BPS Guide to PHARMACOLOGY (GtoPdb) MCP — keyless.
+ * IUPHAR/BPS Guide to PHARMACOLOGY (GtoPdb) MCP — BYO key.
  * Expert-curated pharmacology database of drug targets, ligands, and their interactions.
+ *
+ * GtoPdb added a mandatory API key on every /services endpoint alongside
+ * mandatory account registration (observed 2026-10-06; a keyless call now
+ * 401s with "API key is missing..."). No free self-service "generate a key"
+ * button exists on the site today — registering gets you an account, and the
+ * key itself is requested from the GtoPdb team from there (login.jsp says
+ * only "register and login"; no API-key issuance flow is documented beyond
+ * that). So this is BYO-only, not platform-keyed: a caller supplies their own
+ * key as `_apiKey` (gateway-injected, discoverable — see BYO_ONLY_KEY_PACKS
+ * in workers/gateway/src/index.ts) and this pack forwards it as the
+ * `GTP-API-Key` header GtoPdb's docs name (a `?GTP-API-Key=` query param also
+ * works per their docs, but a header keeps it out of logs/URLs).
  */
 
 
@@ -686,12 +698,13 @@ async function pwFetch(url: string | URL, init?: RequestInit): Promise<Response>
 
 const BASE = 'https://www.guidetopharmacology.org/services';
 const UA = 'pipeworx/1.0 (+https://pipeworx.io)';
+const REGISTER_URL = 'https://www.guidetopharmacology.org/login.jsp';
 
 const tools: McpToolExport['tools'] = [
   {
     name: 'search_ligands',
     description:
-      'Search the Guide to PHARMACOLOGY (IUPHAR/BPS) — an expert-curated pharmacology database — for drug ligands by name. Returns matching ligands with their GtoPdb ligand id, type (e.g. Synthetic organic, Peptide, Antibody, Metabolite), and approval status. Use the returned ligand id with ligand_interactions to find which protein targets it acts on. Keyless. Complements ChEMBL/DrugBank.',
+      'Search the Guide to PHARMACOLOGY (IUPHAR/BPS) — an expert-curated pharmacology database — for drug ligands by name. Returns matching ligands with their GtoPdb ligand id, type (e.g. Synthetic organic, Peptide, Antibody, Metabolite), and approval status. Use the returned ligand id with ligand_interactions to find which protein targets it acts on. Requires a GtoPdb API key — register free at guidetopharmacology.org/login.jsp and pass your own via _apiKey. Complements ChEMBL/DrugBank.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -704,7 +717,7 @@ const tools: McpToolExport['tools'] = [
   {
     name: 'search_targets',
     description:
-      'Search the Guide to PHARMACOLOGY (IUPHAR/BPS) — an expert-curated pharmacology database — for protein targets by name. Returns matching targets with their GtoPdb target id, abbreviation, and type (e.g. GPCR, CatalyticReceptor, Enzyme, Transporter). Use the returned target id with target_interactions to find ligands that bind it. Keyless. Complements ChEMBL/DrugBank.',
+      'Search the Guide to PHARMACOLOGY (IUPHAR/BPS) — an expert-curated pharmacology database — for protein targets by name. Returns matching targets with their GtoPdb target id, abbreviation, and type (e.g. GPCR, CatalyticReceptor, Enzyme, Transporter). Use the returned target id with target_interactions to find ligands that bind it. Requires a GtoPdb API key — register free at guidetopharmacology.org/login.jsp and pass your own via _apiKey. Complements ChEMBL/DrugBank.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -717,7 +730,7 @@ const tools: McpToolExport['tools'] = [
   {
     name: 'target_interactions',
     description:
-      'List the quantitative ligand interactions for a protein target in the Guide to PHARMACOLOGY (IUPHAR/BPS). Given a GtoPdb target id (from search_targets), returns the ligands acting on it with interaction type (Agonist/Antagonist/Inhibitor/etc.), action, and binding affinity (e.g. pKi/pIC50). Keyless.',
+      'List the quantitative ligand interactions for a protein target in the Guide to PHARMACOLOGY (IUPHAR/BPS). Given a GtoPdb target id (from search_targets), returns the ligands acting on it with interaction type (Agonist/Antagonist/Inhibitor/etc.), action, and binding affinity (e.g. pKi/pIC50). Requires a GtoPdb API key — register free at guidetopharmacology.org/login.jsp and pass your own via _apiKey.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -730,7 +743,7 @@ const tools: McpToolExport['tools'] = [
   {
     name: 'ligand_interactions',
     description:
-      'What proteins a drug acts on — the curated target interactions for a ligand in the Guide to PHARMACOLOGY (IUPHAR/BPS), each with the target PROTEIN NAME, interaction type (Agonist/Antagonist/Inhibitor), action and binding affinity (pKi/pIC50). Pass the drug by name ("imatinib") and it is resolved for you; a GtoPdb ligand id also works. The response always names the ligand it actually read, so an id that turns out to be a different compound is visible rather than silent. Keyless.',
+      'What proteins a drug acts on — the curated target interactions for a ligand in the Guide to PHARMACOLOGY (IUPHAR/BPS), each with the target PROTEIN NAME, interaction type (Agonist/Antagonist/Inhibitor), action and binding affinity (pKi/pIC50). Pass the drug by name ("imatinib") and it is resolved for you; a GtoPdb ligand id also works. The response always names the ligand it actually read, so an id that turns out to be a different compound is visible rather than silent. Requires a GtoPdb API key — register free at guidetopharmacology.org/login.jsp and pass your own via _apiKey.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -750,9 +763,9 @@ const tools: McpToolExport['tools'] = [
  * ligand 5984, which is herbimycin A, and returned zero interactions. Imatinib
  * is 5687 and has three. Resolve the name here, and name whatever id we do read.
  */
-async function ligandName(id: string): Promise<string | null> {
+async function ligandName(id: string, apiKey: string): Promise<string | null> {
   try {
-    const data = await gtopGet(`/ligands/${encodeURIComponent(id)}`);
+    const data = await gtopGet(`/ligands/${encodeURIComponent(id)}`, apiKey);
     const name = (data as Record<string, unknown> | null)?.name;
     return typeof name === 'string' ? name : null;
   } catch {
@@ -760,15 +773,15 @@ async function ligandName(id: string): Promise<string | null> {
   }
 }
 
-async function resolveLigand(args: Record<string, unknown>): Promise<{ id: string; name: string | null; requestedName?: string }> {
+async function resolveLigand(args: Record<string, unknown>, apiKey: string): Promise<{ id: string; name: string | null; requestedName?: string }> {
   const rawId = args.ligand_id == null ? '' : String(args.ligand_id).trim();
   const name = typeof args.ligand === 'string' ? args.ligand.trim() : '';
-  if (rawId) return { id: rawId, name: await ligandName(rawId) };
+  if (rawId) return { id: rawId, name: await ligandName(rawId, apiKey) };
   if (!name) throw new Error('Give a ligand name ("imatinib") or a GtoPdb ligand_id. Names are resolved for you.');
 
   // GtoPdb answers an unmatched name with a 404, which gtopGet throws — that
   // raw upstream body is not an answer to "which drug did you mean".
-  const found = await gtopGet(`/ligands?name=${encodeURIComponent(name)}`).catch(() => null);
+  const found = await gtopGet(`/ligands?name=${encodeURIComponent(name)}`, apiKey).catch(() => null);
   const list = Array.isArray(found) ? (found as Record<string, unknown>[]) : [];
   if (!list.length) {
     throw new Error(`No Guide to PHARMACOLOGY ligand matches "${name}". Try search_ligands with a fragment of the name — GtoPdb curates selected pharmacology, so not every marketed drug is listed.`);
@@ -780,11 +793,11 @@ async function resolveLigand(args: Record<string, unknown>): Promise<{ id: strin
 }
 
 /** Bounded: one lookup per distinct target on the page being returned. */
-async function targetNames(ids: string[]): Promise<Map<string, string>> {
+async function targetNames(ids: string[], apiKey: string): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   await Promise.all(ids.slice(0, 40).map(async (id) => {
     try {
-      const data = await gtopGet(`/targets/${encodeURIComponent(id)}`) as Record<string, unknown> | null;
+      const data = await gtopGet(`/targets/${encodeURIComponent(id)}`, apiKey) as Record<string, unknown> | null;
       const name = data?.name, abbr = data?.abbreviation;
       if (typeof name === 'string') out.set(id, abbr && typeof abbr === 'string' && abbr ? `${name} (${abbr})` : name);
     } catch {
@@ -796,11 +809,21 @@ async function targetNames(ids: string[]): Promise<Map<string, string>> {
 
 async function callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
   try {
+    // GtoPdb requires a key on every /services endpoint now (observed
+    // 2026-10-06; see the module docstring). Refuse honestly and up front —
+    // `search_ligands`/etc. used to proxy the raw vendor 401 straight through,
+    // which read as "GtoPdb is down" rather than "bring your own key".
+    const apiKey = (args._apiKey as string | undefined)?.trim();
+    if (!apiKey) {
+      throw new Error(
+        `guidetopharmacology requires an API key. Register free at ${REGISTER_URL}, then request a key from your account, and pass it via _apiKey — this pack forwards it as the GTP-API-Key header GtoPdb expects.`,
+      );
+    }
     switch (name) {
       case 'search_ligands': {
         const q = reqStr(args, 'name');
         const limit = numArg(args.limit, 15);
-        const data = await gtopGet(`/ligands?name=${encodeURIComponent(q)}`);
+        const data = await gtopGet(`/ligands?name=${encodeURIComponent(q)}`, apiKey);
         const list = Array.isArray(data) ? data : [];
         const ligands = list.slice(0, limit).map((l) => ({
           id: (l as Record<string, unknown>).ligandId,
@@ -814,7 +837,7 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
       case 'search_targets': {
         const q = reqStr(args, 'name');
         const limit = numArg(args.limit, 15);
-        const data = await gtopGet(`/targets?name=${encodeURIComponent(q)}`);
+        const data = await gtopGet(`/targets?name=${encodeURIComponent(q)}`, apiKey);
         const list = Array.isArray(data) ? data : [];
         const targets = list.slice(0, limit).map((t) => ({
           id: (t as Record<string, unknown>).targetId,
@@ -827,7 +850,7 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
       case 'target_interactions': {
         const targetId = reqIdStr(args, 'target_id');
         const limit = numArg(args.limit, 25);
-        const data = await gtopGet(`/targets/${encodeURIComponent(targetId)}/interactions`);
+        const data = await gtopGet(`/targets/${encodeURIComponent(targetId)}/interactions`, apiKey);
         const list = Array.isArray(data) ? data : [];
         const interactions = list.slice(0, limit).map((i) => {
           const r = i as Record<string, unknown>;
@@ -844,15 +867,15 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
         return { target_id: targetId, count: list.length, interactions };
       }
       case 'ligand_interactions': {
-        const resolved = await resolveLigand(args);
+        const resolved = await resolveLigand(args, apiKey);
         const limit = numArg(args.limit, 25);
-        const data = await gtopGet(`/ligands/${encodeURIComponent(resolved.id)}/interactions`);
+        const data = await gtopGet(`/ligands/${encodeURIComponent(resolved.id)}/interactions`, apiKey);
         const list = Array.isArray(data) ? data : [];
         const slice = list.slice(0, limit).map((i) => i as Record<string, unknown>);
 
         // "What proteins does imatinib target?" is not answered by the integers
         // 1923/1844/1843. Name them.
-        const names = await targetNames([...new Set(slice.map((r) => String(r.targetId ?? '')))].filter(Boolean));
+        const names = await targetNames([...new Set(slice.map((r) => String(r.targetId ?? '')))].filter(Boolean), apiKey);
         const interactions = slice.map((r) => ({
           target_id: r.targetId,
           target: names.get(String(r.targetId)) ?? null,
@@ -887,8 +910,10 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
   }
 }
 
-async function gtopGet(path: string): Promise<unknown> {
-  const res = await pwFetch(`${BASE}${path}`, { headers: { Accept: 'application/json', 'User-Agent': UA } });
+async function gtopGet(path: string, apiKey: string): Promise<unknown> {
+  const res = await pwFetch(`${BASE}${path}`, {
+    headers: { Accept: 'application/json', 'User-Agent': UA, 'GTP-API-Key': apiKey },
+  });
   if (!res.ok) {
     const body = await res.text().then((t) => t.slice(0, 200)).catch(() => '');
     throw new Error(`GtoPdb: ${res.status} ${body}`);
