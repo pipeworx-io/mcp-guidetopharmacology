@@ -3,7 +3,7 @@
   "name": "io.github.pipeworx-io/guidetopharmacology",
   "title": "Guidetopharmacology",
   "description": "IUPHAR/BPS Guide to PHARMACOLOGY (GtoPdb) MCP — BYO key. Expert-curated pharmacology database of…",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "websiteUrl": "https://pipeworx.io/packs/guidetopharmacology",
   "repository": {
     "url": "https://github.com/pipeworx-io/mcp-guidetopharmacology",
