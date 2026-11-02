@@ -1,6 +1,6 @@
 {
   "name": "@pipeworx/mcp-guidetopharmacology",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "IUPHAR/BPS Guide to PHARMACOLOGY (GtoPdb) MCP — BYO key. Expert-curated pharmacology database of drug targets, ligands, and their interactions.",
   "type": "module",
   "main": "lib/index.js",
@@ -27,7 +27,7 @@
     "mode": "gateway",
     "slug": "guidetopharmacology",
     "gatewaySlug": "guidetopharmacology",
-    "sourceHash": "v1-da59083cf20bfe66df4f435b02b6c41955e71d5c0f0886badb084d3207496a22",
-    "sourceCommit": "4844029e402d6bd2fe735add8abf6d46735f8ed5"
+    "sourceHash": "v1-ac0f60dd6e661a1a37b8c02e41da3c43d2a5bb6a13f4012841c3ec504682d3f4",
+    "sourceCommit": "0ca9712c0ac03bb0121cc7e81b202d0c45ac02ca"
   }
 }
